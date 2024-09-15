@@ -5,8 +5,12 @@ temp_dir="temp_dependencies"
 output_file="all_dependencies.txt"
 package_metadata_file="Packages"  # Path to the Packages metadata file
 
+# File to store the dependencies array
+dependencies_output_file="dependencies_output.txt"
+
 # Create or empty the output file
 > "$output_file"
+> "$dependencies_output_file"  # Clear the dependencies output file
 mkdir -p "$temp_dir"  # Create the temporary directory if it doesn't exist
 
 # Function to fetch dependencies for a given package and store them
@@ -56,7 +60,7 @@ resolve_dependencies() {
 
             # Format secondary dependencies and append them to the output file
             if grep -q "No dependencies found" "$secondary_dep_file"; then
-                echo "{$primary_dep_name}" >> "$output_file"
+                echo "{$primary_dep_name, No dependencies found for $package_name}" >> "$output_file"
             else
                 secondary_dependencies=$(cat "$secondary_dep_file" | tr '\n' ',' | sed 's/,$//')
                 echo "{$primary_dep_name, $secondary_dependencies}" >> "$output_file"
@@ -91,7 +95,7 @@ main "$1"
 input_file="all_dependencies.txt"
 
 # Start creating the dependencies array
-echo "dependencies = ["
+echo "dependencies = [" > "$dependencies_output_file"  # Redirect output to the file
 
 # Process each line in the input file
 while IFS= read -r line
@@ -107,9 +111,12 @@ do
     IFS=',' read -ra deps_array <<< "$dependencies"
     for dep in "${deps_array[@]}"; do
         dep=$(echo "$dep" | xargs)  # Trim any leading/trailing spaces
-        echo "(\"$package\", \"$dep\"),"
+        echo "(\"$package\", \"$dep\")," >> "$dependencies_output_file"  # Redirect to the file
     done
 done < "$input_file"
 
 # End the dependencies array
-echo "]"
+echo "]" >> "$dependencies_output_file"
+
+# Display the result
+cat "$dependencies_output_file"
