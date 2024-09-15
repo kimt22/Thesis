@@ -56,7 +56,7 @@ resolve_dependencies() {
 
             # Format secondary dependencies and append them to the output file
             if grep -q "No dependencies found" "$secondary_dep_file"; then
-                echo "{$primary_dep_name, No dependencies found for $primary_dep_name}" >> "$output_file"
+                echo "{$primary_dep_name}" >> "$output_file"
             else
                 secondary_dependencies=$(cat "$secondary_dep_file" | tr '\n' ',' | sed 's/,$//')
                 echo "{$primary_dep_name, $secondary_dependencies}" >> "$output_file"
@@ -86,3 +86,30 @@ main() {
 
 # Example usage: pass the package name as an argument
 main "$1"
+
+# Input file containing the dependencies
+input_file="all_dependencies.txt"
+
+# Start creating the dependencies array
+echo "dependencies = ["
+
+# Process each line in the input file
+while IFS= read -r line
+do
+    # Remove curly braces and split the line into package name and dependencies
+    clean_line=$(echo "$line" | tr -d '{}')
+
+    # Extract the package name and the dependencies
+    package=$(echo "$clean_line" | awk -F ',' '{print $1}' | xargs)  # Get package name (first field)
+    dependencies=$(echo "$clean_line" | cut -d',' -f2- | xargs)  # Get dependencies part (everything after the first field)
+
+    # Split the dependencies by comma and print each one on a new line
+    IFS=',' read -ra deps_array <<< "$dependencies"
+    for dep in "${deps_array[@]}"; do
+        dep=$(echo "$dep" | xargs)  # Trim any leading/trailing spaces
+        echo "(\"$package\", \"$dep\"),"
+    done
+done < "$input_file"
+
+# End the dependencies array
+echo "]"
