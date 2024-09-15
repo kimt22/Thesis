@@ -1,4 +1,3 @@
-jamesbond007@Thor:~/thesis2$ cat cleanup.sh
 #!/bin/bash
 
 # Function to check if OpenStack RC file is sourced
