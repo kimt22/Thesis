@@ -90,13 +90,13 @@ dependencies = read_dependencies_from_file("dependencies_output.txt")
 # Perform topological sort
 order = topological_sort(dependencies)
 
-# Write the output to topo_order.txt
+# Write the output to topo_order.txt in the desired format
 with open("topo_order.txt", "w") as f:
-    if order:
-        f.write("Topological order of installation:\n")
-        f.write(str(order))
+    if isinstance(order, list):
+        for package in order:
+            f.write(package + '\n')  # Write each package on a new line
     else:
-        f.write("There is a cycle in the dependencies.\n")
+        f.write(order + '\n')  # Write the cycle error message if present
 
 # Optionally, display the output to the console
 print("Topological order has been saved to topo_order.txt.")
