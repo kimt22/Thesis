@@ -89,7 +89,14 @@ dependencies = read_dependencies_from_file("dependencies_output.txt")
 
 # Perform topological sort
 order = topological_sort(dependencies)
-if order:
-    print("Topological order of installation:", order)
-else:
-    print("There is a cycle in the dependencies.")
+
+# Write the output to topo_order.txt
+with open("topo_order.txt", "w") as f:
+    if order:
+        f.write("Topological order of installation:\n")
+        f.write(str(order))
+    else:
+        f.write("There is a cycle in the dependencies.\n")
+
+# Optionally, display the output to the console
+print("Topological order has been saved to topo_order.txt.")
