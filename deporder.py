@@ -1,5 +1,35 @@
 from collections import defaultdict, deque
 
+# Function to read dependencies from the output_dependencies.txt file
+def read_dependencies_from_file(file_path):
+    dependencies = []
+    with open(file_path, 'r') as f:
+        for line in f:
+            # Clean the line and skip empty or malformed lines
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            # Parse the dependency as a tuple (package, dependency)
+            try:
+                pkg, dep = line.split(',', 1)
+                pkg = pkg.strip().strip('()').replace('"', '')  # Clean up the package name
+                dep = dep.strip().strip('()').replace('"', '')  # Clean up the dependency
+
+                # Remove version numbers from the dependency and package
+                pkg_clean = pkg.split()[0]
+                dep_clean = dep.split()[0]
+
+                # Avoid adding "No" as a dependency and clean up trailing ')', commas, etc.
+                if dep_clean != "No":
+                    dep_clean = dep_clean.rstrip("),").strip()  # Remove trailing `)` and commas
+                    dependencies.append((pkg_clean, dep_clean))
+            except ValueError:
+                continue  # Skip malformed lines that don't contain both package and dependency
+
+    return dependencies
+
+# Topological sorting function
 def topological_sort(dependencies):
     # Graph and in-degree dictionary
     graph = defaultdict(list)
@@ -54,51 +84,10 @@ def topological_sort(dependencies):
     else:
         return "Cycle detected in dependencies!"
 
-# Example dependencies with alternatives
-dependencies = [
-("apache2", "apache2-bin (= 2.4.52-1ubuntu4)"),
-("apache2", "apache2-data (= 2.4.52-1ubuntu4)"),
-("apache2", "apache2-utils (= 2.4.52-1ubuntu4)"),
-("apache2", "lsb-base"),
-("apache2", "mime-support"),
-("apache2", "perl:any"),
-("apache2", "procps"),
-("apache2-bin", "perl:any"),
-("apache2-bin", "libapr1 (>= 1.7.0)"),
-("apache2-bin", "libaprutil1 (>= 1.6.0)"),
-("apache2-bin", "libaprutil1-dbd-sqlite3 | libaprutil1-dbd-mysql | libaprutil1-dbd-odbc | libaprutil1-dbd-pgsql | libaprutil1-dbd-freetds"),
-("apache2-bin", "libaprutil1-ldap"),
-("apache2-bin", "libbrotli1 (>= 0.6.0)"),
-("apache2-bin", "libc6 (>= 2.34)"),
-("apache2-bin", "libcrypt1 (>= 1:4.1.0)"),
-("apache2-bin", "libcurl4 (>= 7.28.0)"),
-("apache2-bin", "libjansson4 (>= 2.4)"),
-("apache2-bin", "libldap-2.5-0 (>= 2.5.4)"),
-("apache2-bin", "liblua5.3-0"),
-("apache2-bin", "libnghttp2-14 (>= 1.15.0)"),
-("apache2-bin", "libpcre3"),
-("apache2-bin", "libssl3 (>= 3.0.0~~alpha1)"),
-("apache2-bin", "libxml2 (>= 2.7.4)"),
-("apache2-bin", "zlib1g (>= 1:1.1.4)"),
-("apache2-data", ),
-("apache2-utils", "libapr1 (>= 1.4.8-2~)"),
-("apache2-utils", "libaprutil1 (>= 1.5.0)"),
-("apache2-utils", "libc6 (>= 2.34)"),
-("apache2-utils", "libcrypt1 (>= 1:4.1.0)"),
-("apache2-utils", "libssl3 (>= 3.0.0~~alpha1)"),
-("lsb-base", ),
-("mime-support", "mailcap"),
-("mime-support", "media-types"),
-("perl:any", ),
-("procps", "libc6 (>= 2.34)"),
-("procps", "libncurses6 (>= 6)"),
-("procps", "libncursesw6 (>= 6)"),
-("procps", "libprocps8 (>= 2:3.3.16-1)"),
-("procps", "libtinfo6 (>= 6)"),
-("procps", "lsb-base (>= 3.0-10)"),
-("procps", "init-system-helpers (>= 1.29~)"),
-]
+# Fetch the dependencies from output_dependencies.txt
+dependencies = read_dependencies_from_file("dependencies_output.txt")
 
+# Perform topological sort
 order = topological_sort(dependencies)
 if order:
     print("Topological order of installation:", order)
