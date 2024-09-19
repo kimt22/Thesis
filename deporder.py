@@ -29,7 +29,7 @@ def read_dependencies_from_file(file_path):
 
     return dependencies
 
-# Topological sorting function
+# Topological sorting function with cycle detection and resolution
 def topological_sort(dependencies):
     # Graph and in-degree dictionary
     graph = defaultdict(list)
@@ -64,6 +64,48 @@ def topological_sort(dependencies):
             if pkg not in in_degree:
                 in_degree[pkg] = 0  # No dependencies for this package
 
+    def detect_cycle(node, visited, rec_stack, path):
+        visited[node] = True
+        rec_stack[node] = True
+        path.append(node)
+
+        for neighbor in graph[node]:
+            if not visited[neighbor]:
+                result = detect_cycle(neighbor, visited, rec_stack, path)
+                if result:
+                    return result
+            elif rec_stack[neighbor]:
+                # Cycle detected, extract the cycle path
+                cycle_index = path.index(neighbor)
+                cycle_path = path[cycle_index:] + [neighbor]
+                return cycle_path
+
+        rec_stack[node] = False
+        path.pop()
+        return False
+
+    def resolve_cycle():
+        visited = {node: False for node in in_degree}
+        rec_stack = {node: False for node in in_degree}
+
+        for node in in_degree:
+            if not visited[node]:
+                cycle_path = detect_cycle(node, visited, rec_stack, [])
+                if cycle_path and isinstance(cycle_path, list):
+                    print(f"Cycle detected involving: {' -> '.join(cycle_path)}")
+                    # Resolve the cycle by removing an edge (dependency) in the cycle
+                    pkg_to_remove = cycle_path[0]
+                    dep_to_remove = cycle_path[1]
+                    print(f"Removing dependency: {pkg_to_remove} -> {dep_to_remove}")
+                    graph[pkg_to_remove].remove(dep_to_remove)
+                    in_degree[dep_to_remove] -= 1
+                    return True
+        return False
+
+    # Resolve all cycles by removing one dependency at a time
+    while resolve_cycle():
+        pass
+
     # Find all nodes with zero in-degree to start the sorting
     queue = deque([pkg for pkg in in_degree if in_degree[pkg] == 0])
     sorted_order = []
@@ -82,7 +124,7 @@ def topological_sort(dependencies):
     if len(sorted_order) == len(in_degree):
         return sorted_order
     else:
-        return "Cycle detected in dependencies!"
+        return "Unresolvable cycle detected!"
 
 # Fetch the dependencies from output_dependencies.txt
 dependencies = read_dependencies_from_file("dependencies_output.txt")
