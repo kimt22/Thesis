@@ -8,7 +8,7 @@ package_metadata_file="Packages"  # Path to the Packages metadata file
 # File to store the dependencies array
 dependencies_output_file="dependencies_output.txt"
 
-# Create or empty the output file
+# Create or empty the output files
 > "$output_file"
 > "$dependencies_output_file"  # Clear the dependencies output file
 mkdir -p "$temp_dir"  # Create the temporary directory if it doesn't exist
@@ -28,45 +28,54 @@ fetch_dependencies() {
     if [[ -n "$dependencies" ]]; then
         echo "$dependencies" > "$output_file"
     else
-        echo "No dependencies found for $package_name" > "$output_file"
+        echo "" > "$output_file"  # Output blank instead of "No dependencies found"
     fi
 }
 
-# Function to resolve dependencies recursively for primary and secondary levels
-resolve_dependencies() {
+# Function to resolve all levels of dependencies iteratively
+resolve_all_dependencies() {
     local package_name=$1
     local output_file=$2
 
-    # Fetch primary dependencies for the package
-    primary_dep_file="${temp_dir}/${package_name}_dep.txt"
-    fetch_dependencies "$package_name" "$primary_dep_file"
+    # Track all resolved dependencies in an array to avoid duplicates
+    declare -A resolved_packages
+    declare -A seen_dependencies
 
-    # Read and format the primary dependencies
-    if grep -q "No dependencies found" "$primary_dep_file"; then
-        echo "{$package_name, No dependencies found for $package_name}" >> "$output_file"
-    else
-        primary_dependencies=$(cat "$primary_dep_file" | tr '\n' ',' | sed 's/,$//')  # Format as comma-separated
-        echo "{$package_name, $primary_dependencies}" >> "$output_file"
+    # Initialize with the main package
+    queue=("$package_name")
 
-        # Resolve secondary dependencies for each primary dependency
-        while IFS= read -r line; do
-            primary_dep_name=$(echo "$line" | awk '{print $1}')  # Get the package name only
-            secondary_dep_file="${temp_dir}/${primary_dep_name}_dep.txt"
+    # Loop until no more packages to process
+    while [[ ${#queue[@]} -gt 0 ]]; do
+        current_package="${queue[0]}"
+        queue=("${queue[@]:1}")
 
-            # Fetch secondary dependencies for the primary dependency
-            if [[ ! -f "$secondary_dep_file" ]]; then
-                fetch_dependencies "$primary_dep_name" "$secondary_dep_file"
-            fi
+        # Skip if already resolved
+        if [[ -n "${resolved_packages[$current_package]}" ]]; then
+            continue
+        fi
 
-            # Format secondary dependencies and append them to the output file
-            if grep -q "No dependencies found" "$secondary_dep_file"; then
-                echo "{$primary_dep_name, No dependencies found for $package_name}" >> "$output_file"
-            else
-                secondary_dependencies=$(cat "$secondary_dep_file" | tr '\n' ',' | sed 's/,$//')
-                echo "{$primary_dep_name, $secondary_dependencies}" >> "$output_file"
-            fi
-        done < "$primary_dep_file"
-    fi
+        # Fetch dependencies for the current package
+        dep_file="${temp_dir}/${current_package}_dep.txt"
+        fetch_dependencies "$current_package" "$dep_file"
+
+        # Read dependencies and process them
+        if [[ ! -s "$dep_file" ]]; then
+            echo "{$current_package, }" >> "$output_file"  # Blank for no dependencies
+        else
+            dependencies=$(cat "$dep_file" | tr '\n' ',' | sed 's/,$//')  # Format as comma-separated
+            echo "{$current_package, $dependencies}" >> "$output_file"
+            resolved_packages["$current_package"]=1
+
+            # Add new dependencies to the queue if not already seen
+            while IFS= read -r dep_line; do
+                dep_name=$(echo "$dep_line" | awk '{print $1}' | sed 's/|.*//' | xargs)  # Get the first alternative of the package name only
+                if [[ -n "$dep_name" && -z "${seen_dependencies[$dep_name]}" ]]; then
+                    queue+=("$dep_name")
+                    seen_dependencies["$dep_name"]=1
+                fi
+            done < "$dep_file"
+        fi
+    done
 }
 
 # Main script execution
@@ -81,7 +90,7 @@ main() {
 
     # Start resolving dependencies for the given package
     echo "Resolving dependencies for $package_name..."
-    resolve_dependencies "$package_name" "$output_file"
+    resolve_all_dependencies "$package_name" "$output_file"
 
     # Display the result
     echo "All dependencies have been written to $output_file"
